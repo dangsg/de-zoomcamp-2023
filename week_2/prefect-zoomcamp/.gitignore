@@ -136,3 +136,7 @@ dmypy.json
 *.parquet
 *.csv
 *.json
+
+
+
+week_2/
