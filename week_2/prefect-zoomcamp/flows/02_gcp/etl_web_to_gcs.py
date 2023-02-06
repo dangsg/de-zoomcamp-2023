@@ -6,6 +6,7 @@ from prefect.tasks import task_input_hash
 from random import randint
 from datetime import timedelta
 import os
+from prefect.blocks.notifications import SlackWebhook
 
 
 @task(retries=3, cache_key_fn=task_input_hash, cache_expiration=timedelta(days=1))
@@ -64,6 +65,9 @@ def etl_web_to_gcs(color: str = "yellow", year: int = 2019, month: int = 3) -> N
     write_gcs(path)
 
     print(f"Number of proccessed rows: {len(df)}")
+
+    slack_webhook_block = SlackWebhook.load("slack-notification")
+    slack_webhook_block.notify(f"Number of proccessed rows: {len(df)}")
 
 
 if __name__ == "__main__":
