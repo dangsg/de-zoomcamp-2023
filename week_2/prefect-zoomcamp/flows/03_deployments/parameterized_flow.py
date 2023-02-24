@@ -14,15 +14,24 @@ def fetch(dataset_url: str) -> pd.DataFrame:
     # if randint(0, 1) > 0:
     #     raise Exception
 
-    df = pd.read_csv(dataset_url)
+    # df = pd.read_csv(dataset_url)
+    df = pd.read_csv(dataset_url, encoding='unicode_escape')
     return df
 
 
 @task(log_prints=True)
-def clean(df: pd.DataFrame) -> pd.DataFrame:
+def clean(df: pd.DataFrame, color: str) -> pd.DataFrame:
     """Fix dtype issues"""
-    df["tpep_pickup_datetime"] = pd.to_datetime(df["tpep_pickup_datetime"])
-    df["tpep_dropoff_datetime"] = pd.to_datetime(df["tpep_dropoff_datetime"])
+    if color == "yellow":
+        df["tpep_pickup_datetime"] = pd.to_datetime(df["tpep_pickup_datetime"])
+        df["tpep_dropoff_datetime"] = pd.to_datetime(
+            df["tpep_dropoff_datetime"])
+    elif color == "green":
+        df["lpep_pickup_datetime"] = pd.to_datetime(df["lpep_pickup_datetime"])
+        df["lpep_dropoff_datetime"] = pd.to_datetime(
+            df["lpep_dropoff_datetime"])
+    # df["passenger_count"] = df["passenger_count"].astype(float)
+    # df["payment_type"] = df["payment_type"].astype(float)
     print(df.head(2))
     print(f"columns: {df.dtypes}")
     print(f"rows: {len(df)}")
@@ -33,8 +42,10 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 def write_local(df: pd.DataFrame, color: str, dataset_file: str) -> Path:
     """Write DataFrame out locally as parquet file"""
     os.makedirs(f"data/{color}", exist_ok=True)
-    path = Path(f"data/{color}/{dataset_file}.parquet")
-    df.to_parquet(path, compression="gzip")
+    path = Path(f"data/{color}/{dataset_file}.csv.gz")
+    # path = Path(f"data/{color}/{dataset_file}.parquet")
+    df.to_csv(path, compression="gzip")
+    # df.to_parquet(path, compression="gzip")
     return path
 
 
@@ -46,28 +57,29 @@ def write_gcs(path: Path) -> None:
     return
 
 
-@flow()
+@flow(log_prints=True)
 def etl_web_to_gcs(year: int, month: int, color: str) -> None:
     """The main ETL function"""
     dataset_file = f"{color}_tripdata_{year}-{month:02}"
     dataset_url = f"https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{color}/{dataset_file}.csv.gz"
 
     df = fetch(dataset_url)
-    df_clean = clean(df)
+    df_clean = clean(df, color)
     path = write_local(df_clean, color, dataset_file)
     write_gcs(path)
 
 
-@flow()
+@flow(log_prints=True)
 def etl_parent_flow(
-    months: list[int] = [1, 2], year: int = 2021, color: str = "yellow"
+    months: list[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], year: int = 2019, color: str = "fhv"
 ):
     for month in months:
         etl_web_to_gcs(year, month, color)
 
 
 if __name__ == "__main__":
-    color = "yellow"
-    months = [1, 2, 3]
-    year = 2021
+    color = "fhv"
+    months = list(range(1, 13))
+    months = [1]
+    year = 2020
     etl_parent_flow(months, year, color)
